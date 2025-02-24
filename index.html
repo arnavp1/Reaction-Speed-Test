@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Reaction Speed Game</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+      margin: 0;
+      padding: 0;
+    }
+    h1, p {
+      margin: 10px;
+    }
+    #gameCanvas {
+      border: 2px solid #000;
+      background: #eee;
+      cursor: crosshair;
+    }
+    #status, #timer {
+      margin: 10px;
+      font-size: 18px;
+    }
+    #controlPanel {
+      margin-bottom: 15px;
+    }
+    label {
+      margin-right: 5px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Reaction Speed Game</h1>
+  <div id="controlPanel">
+    <label for="targetInput">Target Circles:</label>
+    <input type="number" id="targetInput" value="5" min="1" style="width: 50px;" />
+    <button id="startButton">Start Game</button>
+  </div>
+  <canvas id="gameCanvas" width="600" height="400"></canvas>
+  <div id="timer"></div>
+  <div id="status"></div>
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const statusDiv = document.getElementById('status');
+    const startButton = document.getElementById('startButton');
+    const targetInput = document.getElementById('targetInput');
+    const timerDiv = document.getElementById('timer');
+
+    let gameActive = false;
+    let targetCircles = 5;
+    let circlesClicked = 0;
+    let circleRadius = 30;
+    let circlePosition = { x: 0, y: 0 };
+
+    let triangleVertices = [
+      { x: 0, y: 0 },
+      { x: 0, y: 0 },
+      { x: 0, y: 0 }
+    ];
+    let triangleSize = 50;
+
+    let startTime = 0;
+    let endTime = 0;
+    let timerInterval = null;
+
+    function getRandomInt(min, max) {
+      return Math.floor(Math.random() * (max - min + 1)) + min;
+    }
+
+    function updateTimer() {
+      if (!gameActive) return;
+      const currentTime = Date.now();
+      const elapsed = ((currentTime - startTime) / 1000).toFixed(2);
+      timerDiv.textContent = `Timer: ${elapsed}s`;
+    }
+
+    function stopTimer() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+    }
+
+    function placeShapes() {
+      const margin = circleRadius;
+      circlePosition.x = getRandomInt(margin, canvas.width - margin);
+      circlePosition.y = getRandomInt(margin, canvas.height - margin);
+
+      const halfSize = triangleSize / 2;
+      let centerX = getRandomInt(halfSize, canvas.width - halfSize);
+      let centerY = getRandomInt(halfSize, canvas.height - halfSize);
+
+      triangleVertices[0] = { x: centerX, y: centerY - halfSize };
+      triangleVertices[1] = { x: centerX - halfSize, y: centerY + halfSize };
+      triangleVertices[2] = { x: centerX + halfSize, y: centerY + halfSize };
+
+      drawShapes();
+    }
+
+    function isCircleClicked(px, py) {
+      const dx = px - circlePosition.x;
+      const dy = py - circlePosition.y;
+      return (dx * dx + dy * dy) <= (circleRadius * circleRadius);
+    }
+
+    function pointInTriangle(px, py, v0, v1, v2) {
+      const denominator = ((v1.y - v2.y) * (v0.x - v2.x) +
+                           (v2.x - v1.x) * (v0.y - v2.y));
+      const a = ((v1.y - v2.y) * (px - v2.x) +
+                 (v2.x - v1.x) * (py - v2.y)) / denominator;
+      const b = ((v2.y - v0.y) * (px - v2.x) +
+                 (v0.x - v2.x) * (py - v2.y)) / denominator;
+      const c = 1 - a - b;
+
+      return (a >= 0 && b >= 0 && c >= 0);
+    }
+
+    function isTriangleClicked(px, py) {
+      return pointInTriangle(px, py, triangleVertices[0], triangleVertices[1], triangleVertices[2]);
+    }
+
+    function drawShapes() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      ctx.fillStyle = 'green';
+      ctx.beginPath();
+      ctx.arc(circlePosition.x, circlePosition.y, circleRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = 'red';
+      ctx.beginPath();
+      ctx.moveTo(triangleVertices[0].x, triangleVertices[0].y);
+      ctx.lineTo(triangleVertices[1].x, triangleVertices[1].y);
+      ctx.lineTo(triangleVertices[2].x, triangleVertices[2].y);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    canvas.addEventListener('click', (e) => {
+      if (!gameActive) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      if (isCircleClicked(mouseX, mouseY)) {
+        circlesClicked++;
+        if (circlesClicked >= targetCircles) {
+          gameActive = false;
+          stopTimer();
+          endTime = Date.now();
+          const totalTime = ((endTime - startTime) / 1000).toFixed(2);
+          statusDiv.textContent = `You win! You took ${totalTime} seconds to click ${targetCircles} circles.`;
+          drawShapes();
+        } else {
+          placeShapes();
+          statusDiv.textContent = `Circles clicked: ${circlesClicked} / ${targetCircles}`;
+        }
+      } else if (isTriangleClicked(mouseX, mouseY)) {
+        gameActive = false;
+        stopTimer();
+        endTime = Date.now();
+        const totalTime = ((endTime - startTime) / 1000).toFixed(2);
+        statusDiv.textContent = `You lost! You clicked the triangle at ${totalTime}s.`;
+        drawShapes();
+      }
+    });
+
+    function startGame() {
+      circlesClicked = 0;
+      targetCircles = parseInt(targetInput.value) || 5;
+      gameActive = true;
+      statusDiv.textContent = `Game started! Click ${targetCircles} circles.`;
+      startTime = Date.now();
+
+      stopTimer();
+      timerInterval = setInterval(updateTimer, 100);
+
+      placeShapes();
+      updateTimer();
+    }
+
+    startButton.addEventListener('click', startGame);
+  </script>
+</body>
+</html>
