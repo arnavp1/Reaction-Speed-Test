@@ -35,14 +35,17 @@
 </head>
 <body>
   <h1>Reaction Speed Game</h1>
+
   <div id="controlPanel">
     <label for="targetInput">Target Circles:</label>
     <input type="number" id="targetInput" value="5" min="1" style="width: 50px;" />
     <button id="startButton">Start Game</button>
   </div>
+
   <canvas id="gameCanvas" width="600" height="400"></canvas>
   <div id="timer"></div>
   <div id="status"></div>
+
   <script>
     const canvas = document.getElementById('gameCanvas');
     const ctx = canvas.getContext('2d');
@@ -55,6 +58,7 @@
     let targetCircles = 5;
     let circlesClicked = 0;
     let circleRadius = 30;
+
     let circlePosition = { x: 0, y: 0 };
 
     let triangleVertices = [
@@ -63,6 +67,8 @@
       { x: 0, y: 0 }
     ];
     let triangleSize = 50;
+
+    let lastTriangleCenter = null;
 
     let startTime = 0;
     let endTime = 0;
@@ -86,10 +92,28 @@
       }
     }
 
-    function placeShapes() {
+    function placeCircleNear(cx, cy) {
       const margin = circleRadius;
-      circlePosition.x = getRandomInt(margin, canvas.width - margin);
-      circlePosition.y = getRandomInt(margin, canvas.height - margin);
+      const range = 80;
+
+      let x = getRandomInt(cx - range, cx + range);
+      let y = getRandomInt(cx - range, cx + range);
+
+      x = Math.max(margin, Math.min(canvas.width - margin, x));
+      y = Math.max(margin, Math.min(canvas.height - margin, y));
+
+      circlePosition.x = x;
+      circlePosition.y = y;
+    }
+
+    function placeShapes() {
+      if (lastTriangleCenter) {
+        placeCircleNear(lastTriangleCenter.x, lastTriangleCenter.y);
+      } else {
+        const margin = circleRadius;
+        circlePosition.x = getRandomInt(margin, canvas.width - margin);
+        circlePosition.y = getRandomInt(margin, canvas.height - margin);
+      }
 
       const halfSize = triangleSize / 2;
       let centerX = getRandomInt(halfSize, canvas.width - halfSize);
@@ -98,6 +122,8 @@
       triangleVertices[0] = { x: centerX, y: centerY - halfSize };
       triangleVertices[1] = { x: centerX - halfSize, y: centerY + halfSize };
       triangleVertices[2] = { x: centerX + halfSize, y: centerY + halfSize };
+
+      lastTriangleCenter = { x: centerX, y: centerY };
 
       drawShapes();
     }
@@ -176,10 +202,12 @@
       targetCircles = parseInt(targetInput.value) || 5;
       gameActive = true;
       statusDiv.textContent = `Game started! Click ${targetCircles} circles.`;
-      startTime = Date.now();
 
+      startTime = Date.now();
       stopTimer();
       timerInterval = setInterval(updateTimer, 100);
+
+      lastTriangleCenter = null;
 
       placeShapes();
       updateTimer();
